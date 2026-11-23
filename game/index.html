@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vice Harbor — an open-world crime game</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0b0e14; overflow: hidden; font-family: "Segoe UI", Verdana, sans-serif; }
+  #game { display: block; width: 100vw; height: 100vh; }
+  .panel { position: fixed; z-index: 10; color: #fff; }
+  #hud { inset: 0; pointer-events: none; display: none; }
+  #stats { top: 14px; right: 16px; text-align: right; text-shadow: 0 2px 4px #000; }
+  #money { font-size: 26px; font-weight: 700; color: #7dff8a; letter-spacing: 1px; }
+  #wanted { font-size: 24px; color: #ffd23e; letter-spacing: 3px; min-height: 30px; }
+  #wanted .off { color: rgba(255,255,255,.22); }
+  #healthwrap { margin-top: 6px; width: 190px; height: 13px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5); margin-left: auto; }
+  #health { height: 100%; width: 100%; background: linear-gradient(90deg, #e33, #f80); }
+  #weapon { margin-top: 5px; font-size: 15px; color: #cfe8ff; }
+  #minimap { left: 14px; bottom: 14px; border: 2px solid rgba(255,255,255,.55); background: rgba(6,10,16,.72); }
+  #banner { top: 64px; left: 50%; transform: translateX(-50%); max-width: 640px; text-align: center; font-size: 19px; line-height: 1.45; color: #ffe9a8; text-shadow: 0 2px 5px #000; background: rgba(0,0,0,.38); padding: 8px 18px; border-radius: 8px; display: none; }
+  #toast { bottom: 178px; left: 50%; transform: translateX(-50%); font-size: 17px; color: #fff; text-shadow: 0 2px 4px #000; background: rgba(0,0,0,.45); padding: 6px 14px; border-radius: 6px; display: none; }
+  #prompt { bottom: 150px; left: 50%; transform: translateX(-50%); font-size: 16px; color: #bfe3ff; text-shadow: 0 2px 4px #000; display: none; }
+  .screen { inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 35%, rgba(20,26,44,.88), rgba(4,6,10,.96)); text-align: center; padding: 20px; }
+  .screen h1 { font-size: 64px; margin: 0 0 4px; letter-spacing: 4px; background: linear-gradient(180deg, #ffd23e, #ff7847 60%, #ff4d8d); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
+  .screen h2 { margin: 0 0 14px; font-weight: 400; color: #9fd8ff; letter-spacing: 6px; font-size: 17px; }
+  .screen p { max-width: 620px; color: #d7dee9; line-height: 1.55; font-size: 16px; }
+  .btn { pointer-events: auto; cursor: pointer; margin: 7px; padding: 12px 34px; font-size: 18px; font-weight: 700; letter-spacing: 1px; color: #10131c; background: linear-gradient(180deg, #ffd23e, #ff9a3e); border: none; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.ghost { background: rgba(255,255,255,.14); color: #fff; }
+  .controls { margin-top: 16px; font-size: 14px; color: #93a5bd; line-height: 1.7; }
+  .controls b { color: #e8f2ff; }
+  #overlay { display: none; }
+  #overlay h1 { font-size: 72px; }
+  #pause { display: none; }
+  kbd { background: #222a38; border: 1px solid #4a5a75; border-bottom-width: 3px; border-radius: 4px; padding: 0 6px; font-family: inherit; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="panel">
+  <div id="stats">
+    <div id="money">$0</div>
+    <div id="wanted"></div>
+    <div id="healthwrap"><div id="health"></div></div>
+    <div id="weapon">Fists</div>
+  </div>
+  <canvas id="minimap" width="196" height="196"></canvas>
+  <div id="banner"></div>
+  <div id="toast"></div>
+  <div id="prompt"></div>
+</div>
+
+<div id="menu" class="screen panel">
+  <h1>VICE HARBOR</h1>
+  <h2>AN OPEN-WORLD CRIME STORY</h2>
+  <p>Rafi returns to Vice Harbor broke and owing money to the wrong people. Work the streets for
+     fixer <b>Dewi</b>: steal wheels, run packages, dodge the Harbor Police, and earn enough to buy
+     your way out — five jobs stand between you and a clean slate.</p>
+  <div>
+    <button class="btn" id="newgame">NEW GAME</button>
+    <button class="btn ghost" id="continue" style="display:none">CONTINUE</button>
+  </div>
+  <div class="controls">
+    <b>Move</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> &nbsp; <b>Enter / exit car</b> <kbd>E</kbd> &nbsp; <b>Punch</b> <kbd>J</kbd> &nbsp; <b>Shoot</b> <kbd>K</kbd><br>
+    <b>Drive</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> &nbsp; <b>Handbrake</b> <kbd>Space</kbd> &nbsp; <b>Run</b> <kbd>Shift</kbd> &nbsp; <b>Pause / save</b> <kbd>P</kbd>
+  </div>
+</div>
+
+<div id="overlay" class="screen panel">
+  <h1 id="overlay-title">WASTED</h1>
+  <p id="overlay-text"></p>
+  <button class="btn" id="respawn">RESPAWN</button>
+</div>
+
+<div id="pause" class="screen panel">
+  <h1 style="font-size:44px">PAUSED</h1>
+  <p id="pause-stats"></p>
+  <button class="btn" id="resume">RESUME</button>
+  <button class="btn ghost" id="savequit">SAVE &amp; TITLE</button>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
